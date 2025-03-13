@@ -1,0 +1,55 @@
+1 2 3
+
+SWITCH_IMPLEMENTATION
+
+Task 1: MAC_table is being formed. When sending data from a host to another host, the switches only store the
+        MAC address and the port of the switch through which the data came (excluding the broadcast address),
+        and then floods the network with the data if destination is not known. MAC table is used only when the
+        destination host has been previously discovered.
+
+        In order to determine if an address is unicast, the "address_ is_unicast" function checks whether the
+        least significat bit of the first byte is equal to 1 or 0.
+        0 => unicast
+        1 => not unicast (multicast or broadcast)
+
+Task 2: The switch configuration files are read for each switch and the "vlan_ids" dictionary stores pairs of
+        type {interface -> vlan_id}.
+        When sending data from a host to another, multiple cases have to be taken into account, meaning that
+        the frame can be sent:
+        1. from a host to a switch => a 4-byte tag containing the vlan_id has to be added right after the MAC 
+                                    addresses and the length of the frame has to be increased by 4.
+        2. from a switch to a host => the frame is being sent only if the vlan_id of the port (towards the host)
+                                    is equal to the tagged-vlan_id contained within the frame. The frame has to
+                                    also be restructured, with its length decreased by 4 and the tag being removed.
+        3. from a switch to a switch => the frame is passed on as it is. We know that the frame contains the tag
+                                    in this case since data has to always be tagged when being transmitted through
+                                    trunk ports and to switches.
+        4. from a host to a host (but through only one switch) => In this case, the frame is coming through an
+                                    access port and being sent through another access port. This can only happen if
+                                    the hosts are connected to the same switch and are part of the same VLAN. In
+                                    this case, the frame is not tagged and is being sent through the access port,
+                                    but only if the vlan_id's of the two ports are equal.
+
+Task 3: The simplified STP algorithm starts by initialising all ports to "Designated" inside the "port_state"
+        dictionary which contains pairs of type {port_number -> state_of_port}. In this version of STP, the state
+        of the ports can either be "Designated" or "Blocked".
+        Each switch has a priority (which is read from the configuration file), and the switch with the smallest
+        priority is the root_bridge of the entire network (having all ports set to "Designated").
+        Initially, every switch sees itself as the root_bridge, having every port set to "Designated".
+        I used global variables for bridge ID's ("own_bridge_ID", "root_bridge_ID") and costs ("root_path_cost")
+        so that the variables do not have to be passed as parameters to the functions who run the STP algorithm.
+        BDPU's are sent every second among switches, establishing the root_bridge and the state of the ports,
+        following the rules listed in the pseudocode provided in the assignment task.
+        When sending BPDU's, they have to be sent to a special address so that they can be interfered accordingly.
+        Therefore, the BPDU's contain the special destination MAC address, the source MAC address of the switch
+        which is sending the package (function "get_switch_mac()"), followed by the LLC header length, the LLC
+        header itself, and the BPDU configuration components. Everything was transformed to bytes using "to_bytes"
+        built-in function, and then concatenated together to formm the 52-byte BPDU ("BPDU_LEN") which is then
+        sent across all the trunk interfaces as long as the switch is root bridge.
+        The "gather_info_bpdu" function retrieves the most important elements of the BPDU (the id's and the cost
+        towards the root bridge)
+        Finally, the VLAN code from task 2 had to suffer a slight modification since data can only be sent through
+        designated ports, meaning that if the port state is blocked, no data can be transmitted through there.
+
+     
+
